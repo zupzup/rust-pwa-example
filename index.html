@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#000000">
+    <link rel="manifest" href="/manifest.json">
+    <title>Example PWA with Rust</title>
+</head>
+<body>
+    <h1>Example PWA using Rust</h1>
+    <div>Local npub: <span id="npub"></span></div>
+    <input type="text" id="inp"/>
+    <button id="sb">Send</button>
+    <button id="fetch">Fetch Nostr Events</button>
+    <h3>Remote Nostr Events:</h3>
+    <div id="remote_events"></div>
+    <h3>Local decrypted messages:</h3>
+    <div id="local_messages"></div>
+    <div>
+        <h2>Uploads</h2>
+        <div>
+            <input type="file" id="file_input" />
+            <button type="button" id="upload">upload</button>
+            <button type="button" id="fetch_images">Fetch Images</button>
+        </div>
+        <div id="files">
+        </div>
+    </div>
+    <script type="module" src="/main.js"></script>
+</body>
+</html>
