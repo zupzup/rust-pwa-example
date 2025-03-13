@@ -5,7 +5,7 @@ import init, {
     send_nostr_msg,
     fetch_nostr_events,
     fetch_and_decrypt_local_messages
-} from '../pkg/index.js';
+} from 'pkg/index.js';
 
 let npub;
 async function run() {
@@ -17,7 +17,7 @@ async function run() {
 
 if ("serviceWorker" in navigator) {
     navigator.serviceWorker
-        .register("/service-worker.js")
+        .register("service-worker.js")
         .then(() => console.log("registered service worker"))
         .catch((err) => console.error("registration of service worker failed", err));
 }
