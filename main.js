@@ -5,7 +5,7 @@ import init, {
     send_nostr_msg,
     fetch_nostr_events,
     fetch_and_decrypt_local_messages
-} from 'pkg/index.js';
+} from './pkg/index.js';
 
 let npub;
 async function run() {
