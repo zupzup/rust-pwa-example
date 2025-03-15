@@ -148,6 +148,7 @@ pub async fn fetch_and_decrypt_local_messages() -> JsValue {
             .to_owned()
         })
         .collect();
+    info!("fetched messages: {decrypted:?}");
     serde_wasm_bindgen::to_value(&decrypted).unwrap()
 }
 
@@ -166,6 +167,7 @@ pub async fn save_image(file_name: &str, file_bytes: Vec<u8>) {
         bytes: encrypt(&file_bytes, &encryption_keys.pk),
     };
     let _: Option<File> = db.create("img").content(f).await.unwrap();
+    info!("saved img: {file_name:?}");
 }
 
 #[wasm_bindgen]
@@ -180,6 +182,7 @@ pub async fn fetch_images() -> JsValue {
             bytes: decrypt(&f.bytes, &encryption_keys.sk),
         })
         .collect();
+    info!("fetched images: {}", decrypted.len());
     serde_wasm_bindgen::to_value(&decrypted).unwrap()
 }
 
