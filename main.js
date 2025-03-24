@@ -4,7 +4,9 @@ import init, {
     initialize,
     send_nostr_msg,
     fetch_nostr_events,
-    fetch_and_decrypt_local_messages
+    fetch_and_decrypt_local_messages,
+    save_encrypted_msg,
+    fetchmsg,
 } from '../pkg/index.js';
 
 let npub;
@@ -12,14 +14,7 @@ async function run() {
     await init();
     npub = await initialize();
     document.getElementById("npub").textContent = npub;
-    await refresh_local_messages();
-}
-
-if ("serviceWorker" in navigator) {
-    navigator.serviceWorker
-        .register("/service-worker.js")
-        .then(() => console.log("registered service worker"))
-        .catch((err) => console.error("registration of service worker failed", err));
+    // await refresh_local_messages();
 }
 
 await run();
@@ -57,6 +52,22 @@ document.getElementById("sb").addEventListener("click", async () => {
 document.getElementById("fetch").addEventListener("click", async () => {
     await refresh_remote_messages();
 });
+
+document.getElementById("readwrite").addEventListener("click", async () => {
+    let task_1 = readWrite("first");
+    let task_2 = readWrite("second");
+    let task_3 = readWrite("third");
+    let task_4 = readWrite("fourth");
+    await Promise.all([task_1, task_2, task_3, task_4]);
+});
+
+async function readWrite(t) {
+    for (let i = 0; i <= 1000; i++) {
+        console.log(t, i);
+        await fetchmsg();
+        // await save_encrypted_msg("this is an encrypted msg");
+    }
+}
 
 document.getElementById("upload").addEventListener("click", async () => {
     const file = document.getElementById("file_input").files[0];

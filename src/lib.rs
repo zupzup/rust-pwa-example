@@ -1,7 +1,10 @@
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use ecies::utils::generate_keypair;
 use log::info;
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
+use std::sync::Mutex;
 use surrealdb::{engine::any::Any, Surreal};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
@@ -31,9 +34,17 @@ pub struct File {
     pub bytes: Vec<u8>,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct FileDb {
+    pub name: String,
+    pub bytes: String,
+}
+
+// static GLOBAL: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+
 thread_local! {
     static NOSTR_CLIENT: RefCell<Option<nostr_sdk::Client>> = const { RefCell::new(None) };
-    static SURREAL_DB: RefCell<Option<Surreal<Any>>> = const { RefCell::new(None) };
+    static SURREAL_DB: RefCell<Option<&'static Surreal<Any>>> = const { RefCell::new(None) };
 }
 
 fn init_logging() {
@@ -60,10 +71,17 @@ async fn init_nostr_client(private_key: &str) {
     });
 }
 
-fn get_db() -> Surreal<Any> {
-    SURREAL_DB
-        .with(|db| db.borrow().clone())
-        .expect("is initialized")
+// async fn get_db() -> &'static Surreal<Any> {
+async fn get_db() -> Surreal<Any> {
+    // SURREAL_DB
+    //     .with(|db| db.borrow().clone())
+    //     .expect("is initialized")
+    // return SURREAL_DB.with(|db| db.borrow().expect("DB is not initialized"));
+    let db = surrealdb::engine::any::connect("indxdb://data")
+        .await
+        .unwrap();
+    db.use_ns("").use_db("data").await.unwrap();
+    return db;
 }
 
 fn get_nostr_client() -> nostr_sdk::Client {
@@ -73,14 +91,21 @@ fn get_nostr_client() -> nostr_sdk::Client {
 }
 
 async fn init_surreal_db() {
-    let db = surrealdb::engine::any::connect("indxdb://default")
+    let db = surrealdb::engine::any::connect("indxdb://data")
         .await
         .unwrap();
-    db.use_ns("").use_db("default").await.unwrap();
+    db.use_ns("").use_db("data").await.unwrap();
+    // SURREAL_DB.with(|surreal_db| {
+    //     let mut db_ref = surreal_db.borrow_mut();
+    //     if db_ref.is_none() {
+    //         *db_ref = Some(db);
+    //     }
+    // });
     SURREAL_DB.with(|surreal_db| {
         let mut db_ref = surreal_db.borrow_mut();
         if db_ref.is_none() {
-            *db_ref = Some(db);
+            let leaked: &'static Surreal<Any> = Box::leak(Box::new(db));
+            *db_ref = Some(leaked);
         }
     });
 }
@@ -106,7 +131,7 @@ pub async fn initialize() -> String {
     init_logging();
     init_surreal_db().await;
     if let Some(nostr_keys) = get_nostr_keys_from_db().await {
-        init_nostr_client(&nostr_keys.sk).await;
+        // init_nostr_client(&nostr_keys.sk).await;
         nostr_keys.pk
     } else {
         let nostr_keys = generate_nostr_keys();
@@ -153,41 +178,62 @@ pub async fn fetch_and_decrypt_local_messages() -> JsValue {
 }
 
 async fn fetch_messages() -> Vec<Message> {
-    let db = get_db();
-    let msgs: Vec<Message> = db.select("msg").await.unwrap();
+    // let _guard = GLOBAL.lock().unwrap();
+    let db = get_db().await;
+    let db_clone = db.clone();
+    let _: Option<Message> = db
+        .create("msg")
+        .content(Message {
+            msg: "this is an encrypted msg".to_owned(),
+        })
+        .await
+        .unwrap();
+    let msgs: Vec<Message> = db_clone.select("msg").await.unwrap();
     msgs
 }
 
 #[wasm_bindgen]
 pub async fn save_image(file_name: &str, file_bytes: Vec<u8>) {
     let encryption_keys = get_encryption_keys_from_db().await.unwrap();
-    let db = get_db();
-    let f = File {
+    let db = get_db().await;
+    info!("pre encr");
+    let encrypted = encrypt(&file_bytes, &encryption_keys.pk);
+    info!("pre encod, {}", encrypted.len());
+    let f = FileDb {
         name: file_name.to_owned(),
-        bytes: encrypt(&file_bytes, &encryption_keys.pk),
+        bytes: STANDARD.encode(&encrypted),
     };
-    let _: Option<File> = db.create("img").content(f).await.unwrap();
+    info!("encoded, {}", f.bytes.len());
+    let _: Option<FileDb> = db.create("img").content(f).await.unwrap();
     info!("saved img: {file_name:?}");
 }
 
 #[wasm_bindgen]
 pub async fn fetch_images() -> JsValue {
     let encryption_keys = get_encryption_keys_from_db().await.unwrap();
-    let db = get_db();
-    let files: Vec<File> = db.select("img").await.unwrap();
+    let db = get_db().await;
+    let files: Vec<FileDb> = db.select("img").await.unwrap();
     let decrypted: Vec<File> = files
         .into_iter()
         .map(|f| File {
             name: f.name,
-            bytes: decrypt(&f.bytes, &encryption_keys.sk),
+            bytes: decrypt(&STANDARD.decode(&f.bytes).unwrap(), &encryption_keys.sk),
         })
         .collect();
     info!("fetched images: {}", decrypted.len());
     serde_wasm_bindgen::to_value(&decrypted).unwrap()
 }
 
-async fn save_encrypted_msg(encrypted: &str) {
-    let db = get_db();
+#[wasm_bindgen]
+pub async fn fetchmsg() -> JsValue {
+    let res = fetch_messages().await;
+    serde_wasm_bindgen::to_value(&res).unwrap()
+}
+
+#[wasm_bindgen]
+pub async fn save_encrypted_msg(encrypted: &str) {
+    // let _guard = GLOBAL.lock().unwrap();
+    let db = get_db().await;
     let _: Option<Message> = db
         .create("msg")
         .content(Message {
@@ -198,13 +244,13 @@ async fn save_encrypted_msg(encrypted: &str) {
 }
 
 async fn get_nostr_keys_from_db() -> Option<Keys> {
-    let db = get_db();
+    let db = get_db().await;
     let res: Option<Keys> = db.select(("keys", "nostr")).await.unwrap();
     res
 }
 
 async fn save_nostr_keys_to_db(keys: &Keys) {
-    let db = get_db();
+    let db = get_db().await;
     let _: Option<Keys> = db
         .create(("keys", "nostr"))
         .content(keys.clone())
@@ -213,13 +259,13 @@ async fn save_nostr_keys_to_db(keys: &Keys) {
 }
 
 async fn get_encryption_keys_from_db() -> Option<Keys> {
-    let db = get_db();
+    let db = get_db().await;
     let res: Option<Keys> = db.select(("keys", "encryption")).await.unwrap();
     res
 }
 
 async fn save_encryption_keys_to_db(keys: &Keys) {
-    let db = get_db();
+    let db = get_db().await;
     let _: Option<Keys> = db
         .create(("keys", "encryption"))
         .content(keys.clone())
