@@ -1,7 +1,7 @@
 self.addEventListener("install", (event) => {
     event.waitUntil(
         caches.open("pwa-cache").then((cache) => {
-            return cache.addAll(["/", "/index.html", "/main.js", "/img/logo_192x192", "/img/logo_512x512", "/pkg/index.js", "/pkg/index_bg.wasm"]);
+            return cache.addAll(["/", "/index.html", "/main.js", "/img/logo_192x192.png", "/img/logo_512x512.png", "/pkg/index.js", "/pkg/index_bg.wasm"]);
         })
     );
 });
