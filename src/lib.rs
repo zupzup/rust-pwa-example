@@ -71,17 +71,15 @@ async fn init_nostr_client(private_key: &str) {
     });
 }
 
-// async fn get_db() -> &'static Surreal<Any> {
-async fn get_db() -> Surreal<Any> {
+async fn get_db() -> &'static Surreal<Any> {
+    // async fn get_db() -> Surreal<Any> {
     // SURREAL_DB
     //     .with(|db| db.borrow().clone())
     //     .expect("is initialized")
-    // return SURREAL_DB.with(|db| db.borrow().expect("DB is not initialized"));
-    let db = surrealdb::engine::any::connect("indxdb://data")
-        .await
-        .unwrap();
-    db.use_ns("").use_db("data").await.unwrap();
-    return db;
+    return SURREAL_DB.with(|db| db.borrow().expect("DB is not initialized"));
+    // let db = surrealdb::engine::any::connect("mem://").await.unwrap();
+    // db.use_ns("").use_db("data").await.unwrap();
+    // return db;
 }
 
 fn get_nostr_client() -> nostr_sdk::Client {
@@ -91,9 +89,8 @@ fn get_nostr_client() -> nostr_sdk::Client {
 }
 
 async fn init_surreal_db() {
-    let db = surrealdb::engine::any::connect("indxdb://data")
-        .await
-        .unwrap();
+    // let db = surrealdb::engine::any::connect("indxdb://data")
+    let db = surrealdb::engine::any::connect("mem://").await.unwrap();
     db.use_ns("").use_db("data").await.unwrap();
     // SURREAL_DB.with(|surreal_db| {
     //     let mut db_ref = surreal_db.borrow_mut();
@@ -118,6 +115,13 @@ pub fn generate_nostr_keys() -> Keys {
     }
 }
 
+#[wasm_bindgen]
+pub async fn gen_keys() -> JsValue {
+    let db = get_db().await;
+    // std::mem::drop(db);
+    serde_wasm_bindgen::to_value(&generate_encryption_keys()).unwrap()
+}
+
 pub fn generate_encryption_keys() -> Keys {
     let (sk, pk) = generate_keypair();
     Keys {
@@ -131,7 +135,7 @@ pub async fn initialize() -> String {
     init_logging();
     init_surreal_db().await;
     if let Some(nostr_keys) = get_nostr_keys_from_db().await {
-        // init_nostr_client(&nostr_keys.sk).await;
+        init_nostr_client(&nostr_keys.sk).await;
         nostr_keys.pk
     } else {
         let nostr_keys = generate_nostr_keys();

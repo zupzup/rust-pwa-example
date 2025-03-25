@@ -1,4 +1,5 @@
 import init, {
+    gen_keys,
     save_image,
     fetch_images,
     initialize,
@@ -53,6 +54,11 @@ document.getElementById("fetch").addEventListener("click", async () => {
     await refresh_remote_messages();
 });
 
+document.getElementById("genkeys").addEventListener("click", async () => {
+    let keys = await gen_keys();
+    document.getElementById("pubkey").innerHTML = keys.pk;
+});
+
 document.getElementById("readwrite").addEventListener("click", async () => {
     let task_1 = readWrite("first");
     let task_2 = readWrite("second");
@@ -62,7 +68,7 @@ document.getElementById("readwrite").addEventListener("click", async () => {
 });
 
 async function readWrite(t) {
-    for (let i = 0; i <= 1000; i++) {
+    for (let i = 0; i <= 20; i++) {
         console.log(t, i);
         await fetchmsg();
         // await save_encrypted_msg("this is an encrypted msg");

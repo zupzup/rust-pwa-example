@@ -14,8 +14,9 @@ hex = "0.4"
 serde-wasm-bindgen = "0.6"
 nostr-sdk = "0.39"
 wasm-bindgen-futures = "0.4"
-surrealdb = { version = "2.2", features = ["kv-indxdb"] }
-getrandom = { version = "0.3", features = ["wasm_js"] }
+# surrealdb = { version = "2.2", features = ["kv-indxdb"] }
+surrealdb = { version = "2.2", default-features = false, features = ["kv-mem"] }
+getrandom = { version = "0.3.1", features = ["wasm_js"] }
 console_error_panic_hook = "0.1"
 console_log = { version = "1.0", features = ["color"] }
 log = "0.4"
